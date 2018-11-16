@@ -53,7 +53,7 @@ unsigned long lastActiveTime = 0;
 unsigned long timeout = 7 * 1000;
 
 unsigned long lastSleepTime = 0;
-unsigned long powerdown = 120 * 1000;
+unsigned long powerdown = 60 * 1000;
 bool sleeping = false;
 bool recording = false;
 
@@ -188,9 +188,9 @@ void loop()
       if (!SD.exists(fileRoot + filenum + ".csv"))
       {
         currFile = SD.open(fileRoot + filenum + ".csv", FILE_WRITE);
-        String dataString = "initRate,targetReading,offset,pullThresh,timeRatio,scoreInc";
+        String dataString = "initReading,targetReading,offset,pullThresh,timeRatio,scoreInc";
         currFile.println(dataString);
-        dataString = initRate+"," + targetReading + "," + offset + "," + pullThresh + "," + timeRatio + "," + scoreInc;
+        dataString = initReading +"," + String(targetReading) + "," + offset + "," + pullThresh + "," + timeRatio + "," + scoreInc;
         currFile.println(dataString);
         dataString = "millis,reading,rate,score,hitting";
         currFile.println(dataString);
