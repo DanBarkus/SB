@@ -1,0 +1,5 @@
+{
+    "board": "adafruit:avr:feather32u4",
+    "sketch": "\\SB\\SB.ino",
+    "port": "COM4"
+}
