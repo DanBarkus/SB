@@ -7,7 +7,7 @@
 #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-#include <Adafruit_LIS3DH.h>
+// #include <Adafruit_LIS3DH.h>
 #include <Adafruit_NeoPixel.h>
 
 const int chipSelect = 10;
@@ -28,7 +28,7 @@ byte colorCycle[7][4] = {
     {0, 40, 0, 0}, {0, 0, 40, 0}, {40, 0, 0, 0}, {40, 0, 40, 0}, {0, 40, 40, 0}, {60, 20, 0, 0}, {0, 0, 0, 40}};
 
 Adafruit_BMP280 bme;
-Adafruit_LIS3DH lis = Adafruit_LIS3DH();
+// Adafruit_LIS3DH lis = Adafruit_LIS3DH();
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 
 int initReading = 0;
@@ -53,7 +53,7 @@ unsigned long lastActiveTime = 0;
 unsigned long timeout = 7 * 1000;
 
 unsigned long lastSleepTime = 0;
-unsigned long powerdown = 30 * 1000;
+unsigned long powerdown = 120 * 1000;
 bool sleeping = false;
 bool recording = false;
 
@@ -70,7 +70,7 @@ void setup()
 {
   Serial.begin(9600);
 
-  attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
 
   strip.setBrightness(BRIGHTNESS);
   strip.begin();
@@ -94,14 +94,14 @@ void setup()
       ;
   }
 
-  if (!lis.begin(0x18))
-  { // change this to 0x19 for alternative i2c address
-    Serial.println("Couldnt start");
-  }
-  Serial.println("LIS3DH found!");
+  // if (!lis.begin(0x18))
+  // { // change this to 0x19 for alternative i2c address
+  //   Serial.println("Couldnt start");
+  // }
+  // Serial.println("LIS3DH found!");
 
-  lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
-  lis.setClick(1, CLICKTHRESHHOLD);
+  // lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
+  // lis.setClick(1, CLICKTHRESHHOLD);
 
   // initialize all the readings to 0:
   for (int thisReading = 0; thisReading < numReadings; thisReading++)
@@ -188,6 +188,14 @@ void loop()
       if (!SD.exists(fileRoot + filenum + ".csv"))
       {
         currFile = SD.open(fileRoot + filenum + ".csv", FILE_WRITE);
+        String dataString = "initRate,targetReading,offset,pullThresh,timeRatio,scoreInc";
+        currFile.println(dataString);
+        dataString = initRate+"," + targetReading + "," + offset + "," + pullThresh + "," + timeRatio + "," + scoreInc;
+        currFile.println(dataString);
+        dataString = "millis,reading,rate,score,hitting";
+        currFile.println(dataString);
+        // print to the serial port too:
+        Serial.println(dataString);
         writeReading(hTime, reading, rate, score, hitting, currFile);
       }
       else
@@ -387,7 +395,7 @@ void writeReading(long hTime, int reading, int rate, float score, bool hitting, 
       String dataString = String(hTime) + "," + reading + "," + rate + "," + score + "," + hitting;
       currFile.println(dataString);
       // print to the serial port too:
-      // Serial.println(dataString);
+      Serial.println(dataString);
     }
     // if the file isn't open, pop up an error:
   }
