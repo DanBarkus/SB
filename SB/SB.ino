@@ -40,8 +40,8 @@ const int pullThresh = 70;
 const int numReadings = 10;
 int readings[numReadings]; // the readings from the analog input
 int readIndex = 0;         // the index of the current reading
-long total = 0;            // the running total
-int average = 0;           // the average
+unsigned long total = 0;            // the running total
+unsigned long average = 0;           // the average
 
 float score = 0;
 
@@ -53,7 +53,7 @@ unsigned long lastActiveTime = 0;
 unsigned long timeout = 7 * 1000;
 
 unsigned long lastSleepTime = 0;
-unsigned long powerdown = 60 * 1000;
+unsigned long powerdown = 30 * 1000;
 bool sleeping = false;
 bool recording = false;
 
@@ -177,7 +177,7 @@ void loop()
     //  Serial.println(targetReading);
     strip.show();
     alpha4.writeDisplay();
-    int rate = getRate(reading);
+    float rate = getRate(reading);
     if (hitting)
     {
       Serial.println(score);
@@ -190,7 +190,7 @@ void loop()
         currFile = SD.open(fileRoot + filenum + ".csv", FILE_WRITE);
         String dataString = "initReading,targetReading,offset,pullThresh,timeRatio,scoreInc";
         currFile.println(dataString);
-        dataString = initReading +"," + String(targetReading) + "," + offset + "," + pullThresh + "," + timeRatio + "," + scoreInc;
+        dataString = String(initReading) + "," + targetReading + "," + offset + "," + pullThresh + "," + timeRatio + "," + scoreInc;
         currFile.println(dataString);
         dataString = "millis,reading,rate,score,hitting";
         currFile.println(dataString);
@@ -250,7 +250,7 @@ int getNextReading()
   }
 
   average = total / numReadings;
-  delay(10); // delay in between reads
+  // delay(10); // delay in between reads
   return average;
 }
 
@@ -277,7 +277,7 @@ void updatePressureBar(int reading)
   {
     if (pos >= 4)
     {
-      strip.setPixelColor(9, strip.Color(200, 0, 0, 40));
+      strip.setPixelColor(9, strip.Color(200+(pos-4)*10, 0, 0, 40-(10*(pos-4))));
     }
     else
     {
@@ -290,11 +290,14 @@ void updatePressureBar(int reading)
   }
 }
 
-int getRate(int reading)
+float getRate(int reading)
 {
-  int rate = abs(reading - initReading + 20);
+  float rate = abs(reading - initReading + 20.0);
   //  Serial.println(rate);
-  rate = rate / 150;
+  rate = rate / 150.0;
+  if (rate > 20) {
+    rate = 20;
+  }
   return rate;
 }
 
@@ -310,7 +313,7 @@ bool checkHitting(int reading)
   }
 }
 
-float updateScore(int rate)
+float updateScore(float rate)
 {
   return score += (rate * scoreInc) * timeRatio + scoreInc;
 }
@@ -384,7 +387,7 @@ void getInit()
   targetReading = initReading - offset;
 }
 
-void writeReading(long hTime, int reading, int rate, float score, bool hitting, File currFile)
+void writeReading(long hTime, int reading, float rate, float score, bool hitting, File currFile)
 {
   if (hTime > lastSave + saveInterval)
   {
