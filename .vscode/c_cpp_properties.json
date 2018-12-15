@@ -3,6 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
+                "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\adafruit\\hardware\\samd\\1.2.8\\**",
+                "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\**",
+                "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\samd\\1.6.19\\**",
                 "C:\\Users\\danie\\Documents\\Arduino\\libraries\\Adafruit_LIS3DH",
                 "${workspaceFolder}/**"
             ],
@@ -15,7 +18,9 @@
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "msvc-x64",
-            "forcedInclude": []
+            "forcedInclude": [
+                "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\adafruit\\hardware\\samd\\1.2.8\\cores\\arduino\\Arduino.h"
+            ]
         },
         {
             "name": "Arduino",
@@ -33,7 +38,8 @@
                 "C:/Users/danie/Documents/Arduino/libraries/Adafruit_LED_Backpack_Library",
                 "C:/Users/danie/Documents/Arduino/libraries/Adafruit_NeoPixel",
                 "C:/Users/danie/Documents/Arduino/libraries/Adafruit_Unified_Sensor",
-                "C:/Program Files (x86)/Arduino/hardware/teensy/avr/libraries/SPI"
+                "C:/Program Files (x86)/Arduino/hardware/teensy/avr/libraries/SPI",
+                "C:/Users/danie/Documents/Arduino/libraries/Adafruit_LIS3DH",
             ],
             "browse": {
                 "path": [

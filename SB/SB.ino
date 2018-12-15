@@ -4,15 +4,16 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include <EEPROM.h>
+// #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
-// #include <Adafruit_LIS3DH.h>
+#include <Adafruit_LIS3DH.h>
 #include <Adafruit_NeoPixel.h>
 
 const int chipSelect = 10;
 
 #define PIN 12
+#define SLEEPPIN 6
 
 #define INTERRUPTPIN 0
 
@@ -20,7 +21,7 @@ const int chipSelect = 10;
 #define BRIGHTNESS 18
 #define NUMBRIGHTNESS 1
 
-#define CLICKTHRESHHOLD 80
+#define CLICKTHRESHHOLD 40
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
 
@@ -28,7 +29,7 @@ byte colorCycle[7][4] = {
     {0, 40, 0, 0}, {0, 0, 40, 0}, {40, 0, 0, 0}, {40, 0, 40, 0}, {0, 40, 40, 0}, {60, 20, 0, 0}, {0, 0, 0, 40}};
 
 Adafruit_BMP280 bme;
-// Adafruit_LIS3DH lis = Adafruit_LIS3DH();
+Adafruit_LIS3DH lis = Adafruit_LIS3DH();
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 
 int initReading = 0;
@@ -40,13 +41,13 @@ const int pullThresh = 70;
 const int numReadings = 10;
 int readings[numReadings]; // the readings from the analog input
 int readIndex = 0;         // the index of the current reading
-unsigned long total = 0;            // the running total
-unsigned long average = 0;           // the average
+unsigned long total = 0;   // the running total
+unsigned long average = 0; // the average
 
 float score = 0;
 
-float timeRatio = 0.5;
-const float scoreInc = 0.030;
+float timeRatio = 0.25;
+const float scoreInc = 0.015;
 //score += (rate * scoreInc) * timeRatio + scoreInc
 
 unsigned long lastActiveTime = 0;
@@ -70,8 +71,10 @@ void setup()
 {
   Serial.begin(9600);
 
-  // attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
 
+  pinMode(SLEEPPIN, OUTPUT);
+  digitalWrite(SLEEPPIN, HIGH);
   strip.setBrightness(BRIGHTNESS);
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
@@ -79,6 +82,8 @@ void setup()
   alpha4.begin(0x70); // pass in the address
   alpha4.setBrightness(NUMBRIGHTNESS);
   alpha4.clear();
+  alpha4.writeDigitAscii(2, 'O');
+  alpha4.writeDigitAscii(3, 'K');
   alpha4.writeDisplay();
 
   Serial.println(F("BMP280 test"));
@@ -90,18 +95,24 @@ void setup()
       strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
       strip.show();
     }
-    while (1)
-      ;
   }
 
-  // if (!lis.begin(0x18))
-  // { // change this to 0x19 for alternative i2c address
-  //   Serial.println("Couldnt start");
-  // }
-  // Serial.println("LIS3DH found!");
-
-  // lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
-  // lis.setClick(1, CLICKTHRESHHOLD);
+  if (!lis.begin(0x18))
+  { // change this to 0x19 for alternative i2c address
+    Serial.println("Couldnt start");
+    strip.setPixelColor(10, strip.Color(20, 0, 0, 0));
+    strip.show();
+    delay(1000);
+    strip.clear();
+    strip.show();
+  }
+  else {
+    strip.setPixelColor(11, strip.Color(0, 40, 0, 0));
+    strip.show();
+    lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
+    lis.setClick(1, CLICKTHRESHHOLD);
+    Serial.println("LIS3DH found!");
+  }
 
   // initialize all the readings to 0:
   for (int thisReading = 0; thisReading < numReadings; thisReading++)
@@ -134,15 +145,17 @@ void setup()
   }
   strip.clear();
   strip.show();
+  alpha4.clear();
+  alpha4.writeDisplay();
   root = SD.open("/");
   configFile = SD.open("/config.cgf");
   // setConfig(configFile);
   // filenum = getFileNum(root);
-  if (EEPROM.length() == 0)
-  {
-    EEPROM.write(0, 1);
-  }
-  filenum = EEPROM.read(0);
+  // if (EEPROM.length() == 0)
+  // {
+  //   EEPROM.write(0, 1);
+  // }
+  // filenum = EEPROM.read(0);
 
   for (int i = 0; i < 20; i++)
   {
@@ -211,7 +224,7 @@ void loop()
         {
           currFile.close();
           filenum++;
-          EEPROM.write(0, filenum);
+          // EEPROM.write(0, filenum);
           recording = false;
         }
         resetGame();
@@ -225,6 +238,7 @@ void loop()
         alpha4.writeDigitRaw(2, 0x0);
         alpha4.writeDigitRaw(3, 0x0);
         alpha4.writeDisplay();
+        digitalWrite(SLEEPPIN, LOW);
         sleeping = true;
       }
       else
@@ -277,7 +291,7 @@ void updatePressureBar(int reading)
   {
     if (pos >= 4)
     {
-      strip.setPixelColor(9, strip.Color(200+(pos-4)*10, 0, 0, 40-(10*(pos-4))));
+      strip.setPixelColor(9, strip.Color(200 + (pos - 4) * 10, 0, 0, 40 - (10 * (pos - 4))));
     }
     else
     {
@@ -295,7 +309,8 @@ float getRate(int reading)
   float rate = abs(reading - initReading + 20.0);
   //  Serial.println(rate);
   rate = rate / 150.0;
-  if (rate > 20) {
+  if (rate > 20)
+  {
     rate = 20;
   }
   return rate;
@@ -377,8 +392,64 @@ bool checkSleepTimeout(unsigned long milli)
 
 void wake()
 {
-  strip.setPixelColor(4, strip.Color(20, 0, 0, 0));
+  Serial.println("We should be awake");
+  sleeping = false;
+  pinMode(SLEEPPIN, OUTPUT);
+  digitalWrite(SLEEPPIN, HIGH);
+  strip.setBrightness(BRIGHTNESS);
+  strip.begin();
+
+  alpha4.begin(0x70); // pass in the address
+  alpha4.setBrightness(NUMBRIGHTNESS);
+  alpha4.clear();
+
+  if (!bme.begin())
+  {
+    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    for (int i = 0; i < 9; i++)
+    {
+      strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
+      strip.show();
+    }
+    // while (1);
+  }
+
+  // initialize all the readings to 0:
+  for (int thisReading = 0; thisReading < numReadings; thisReading++)
+  {
+    readings[thisReading] = 0;
+  }
+
+  // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect))
+  {
+    alpha4.writeDigitAscii(0, 'N');
+    alpha4.writeDigitAscii(1, 'o', "drawDots");
+    alpha4.writeDigitAscii(2, 'S');
+    alpha4.writeDigitAscii(3, 'D');
+    alpha4.writeDisplay();
+  }
+  else
+  {
+    Serial.println("card initialized.");
+    for (int i = 0; i < 9; i++)
+    {
+      strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
+    }
+    strip.show();
+    delay(10);
+  }
+  strip.clear();
   strip.show();
+  root = SD.open("/");
+  configFile = SD.open("/config.cgf");
+
+  for (int i = 0; i < 20; i++)
+  {
+    getInit();
+  }
+  lastSleepTime = millis();
+  lastActiveTime = millis();
 }
 
 void getInit()

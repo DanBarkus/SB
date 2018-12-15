@@ -6,7 +6,7 @@ import os, os.path
 # fileRoot = "test_data\\"
 # filePrefix = "test_data_"
 
-fileRoot = "test_data\\TheOne\\"
+fileRoot = "test_data\\Home\\"
 filePrefix = "DATA_"
 imageDirectory = fileRoot + "\\images"
 
@@ -16,7 +16,7 @@ if not os.path.exists(imageDirectory):
 # files = path, dirs, files = next(os.walk(fileRoot))
 # fileNum = len(files)
 
-fileNum = 61
+fileNum = 200
 
 def saveFile(i):
     x = []
