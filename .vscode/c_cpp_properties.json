@@ -40,6 +40,7 @@
                 "C:/Users/danie/Documents/Arduino/libraries/Adafruit_Unified_Sensor",
                 "C:/Program Files (x86)/Arduino/hardware/teensy/avr/libraries/SPI",
                 "C:/Users/danie/Documents/Arduino/libraries/Adafruit_LIS3DH",
+                "C:/Users/danie/Documents/Arduino/libraries/Adafruit_MPRLS_Library"
             ],
             "browse": {
                 "path": [

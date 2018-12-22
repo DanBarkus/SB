@@ -6,12 +6,13 @@
 #include <SD.h>
 // #include <EEPROM.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BMP280.h>
+#include <Adafruit_MPRLS.h>
 #include <Adafruit_LIS3DH.h>
 #include <Adafruit_NeoPixel.h>
 
 const int chipSelect = 10;
 
+#define LIS3DH_CS 9
 #define PIN 12
 #define SLEEPPIN 6
 
@@ -22,27 +23,31 @@ const int chipSelect = 10;
 #define NUMBRIGHTNESS 1
 
 #define CLICKTHRESHHOLD 40
+#define TIMELATENCY 100
+
+#define RESET_PIN  -1  // set to any GPIO pin # to hard-reset on begin()
+#define EOC_PIN    -1  // set to any GPIO pin to read end-of-conversion by pin
+Adafruit_MPRLS mpr = Adafruit_MPRLS(RESET_PIN, EOC_PIN);
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
 
 byte colorCycle[7][4] = {
     {0, 40, 0, 0}, {0, 0, 40, 0}, {40, 0, 0, 0}, {40, 0, 40, 0}, {0, 40, 40, 0}, {60, 20, 0, 0}, {0, 0, 0, 40}};
 
-Adafruit_BMP280 bme;
-Adafruit_LIS3DH lis = Adafruit_LIS3DH();
+Adafruit_LIS3DH lis = Adafruit_LIS3DH(LIS3DH_CS);
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 
-int initReading = 0;
-int targetReading = 0;
+float initReading = 0;
+float targetReading = 0;
 
-const int offset = 450;
-const int pullThresh = 70;
+const int offset = 15;
+const int pullThresh = 7;
 
 const int numReadings = 10;
-int readings[numReadings]; // the readings from the analog input
+float readings[numReadings]; // the readings from the analog input
 int readIndex = 0;         // the index of the current reading
-unsigned long total = 0;   // the running total
-unsigned long average = 0; // the average
+float total = 0;   // the running total
+float average = 0; // the average
 
 float score = 0;
 
@@ -71,10 +76,9 @@ void setup()
 {
   Serial.begin(9600);
 
-  attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
-
   pinMode(SLEEPPIN, OUTPUT);
   digitalWrite(SLEEPPIN, HIGH);
+  delay(1000);
   strip.setBrightness(BRIGHTNESS);
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
@@ -87,7 +91,7 @@ void setup()
   alpha4.writeDisplay();
 
   Serial.println(F("BMP280 test"));
-  if (!bme.begin())
+  if (!mpr.begin())
   {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     for (int i = 0; i < 9; i++)
@@ -110,7 +114,7 @@ void setup()
     strip.setPixelColor(11, strip.Color(0, 40, 0, 0));
     strip.show();
     lis.setRange(LIS3DH_RANGE_2_G); // 2, 4, 8 or 16 G!
-    lis.setClick(1, CLICKTHRESHHOLD);
+    lis.setClick(1, CLICKTHRESHHOLD, 10,TIMELATENCY);
     Serial.println("LIS3DH found!");
   }
 
@@ -240,6 +244,7 @@ void loop()
         alpha4.writeDisplay();
         digitalWrite(SLEEPPIN, LOW);
         sleeping = true;
+        attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
       }
       else
       {
@@ -254,7 +259,8 @@ void loop()
 int getNextReading()
 {
   total = total - readings[readIndex];
-  readings[readIndex] = bme.readPressure();
+  readings[readIndex] = mpr.readPressure();
+  Serial.println(mpr.readPressure());
   total = total + readings[readIndex];
   readIndex = readIndex + 1;
 
@@ -393,63 +399,69 @@ bool checkSleepTimeout(unsigned long milli)
 void wake()
 {
   Serial.println("We should be awake");
-  sleeping = false;
-  pinMode(SLEEPPIN, OUTPUT);
-  digitalWrite(SLEEPPIN, HIGH);
-  strip.setBrightness(BRIGHTNESS);
-  strip.begin();
-
-  alpha4.begin(0x70); // pass in the address
-  alpha4.setBrightness(NUMBRIGHTNESS);
-  alpha4.clear();
-
-  if (!bme.begin())
+  if (sleeping)
   {
-    Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    for (int i = 0; i < 9; i++)
+    detachInterrupt(INTERRUPTPIN);
+    digitalWrite(SLEEPPIN, HIGH);
+    lastSleepTime = millis();
+    lastActiveTime = millis();
+    sleeping = false;
+    Serial.println("in da if");
+    // delay(1000);
+    Serial.println("Starting Bar Display");
+    strip.setBrightness(BRIGHTNESS);
+    strip.begin();
+    Serial.println("Starting AlphaNum");
+    alpha4.begin(0x70); // pass in the address
+    alpha4.setBrightness(NUMBRIGHTNESS);
+    alpha4.clear();
+    // Serial.println("Starting Pressure Sensor");
+    // if (!mpr.begin())
+    // {
+    //   Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+    //   for (int i = 0; i < 9; i++)
+    //   {
+    //     strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
+    //     strip.show();
+    //   }
+    //   // while (1);
+    // }
+
+    // initialize all the readings to 0:
+    for (int thisReading = 0; thisReading < numReadings; thisReading++)
     {
-      strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
-      strip.show();
+      readings[thisReading] = 0;
     }
-    // while (1);
-  }
 
-  // initialize all the readings to 0:
-  for (int thisReading = 0; thisReading < numReadings; thisReading++)
-  {
-    readings[thisReading] = 0;
-  }
+    // see if the card is present and can be initialized:
+    // if (!SD.begin(chipSelect))
+    // {
+    //   alpha4.writeDigitAscii(0, 'N');
+    //   alpha4.writeDigitAscii(1, 'o', "drawDots");
+    //   alpha4.writeDigitAscii(2, 'S');
+    //   alpha4.writeDigitAscii(3, 'D');
+    //   alpha4.writeDisplay();
+    // }
+    // else
+    // {
+    //   Serial.println("card initialized.");
+    //   for (int i = 0; i < 9; i++)
+    //   {
+    //     strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
+    //   }
+    //   strip.show();
+    //   delay(10);
+    // }
+    // strip.clear();
+    // strip.show();
+    root = SD.open("/");
+    configFile = SD.open("/config.cgf");
 
-  // see if the card is present and can be initialized:
-  if (!SD.begin(chipSelect))
-  {
-    alpha4.writeDigitAscii(0, 'N');
-    alpha4.writeDigitAscii(1, 'o', "drawDots");
-    alpha4.writeDigitAscii(2, 'S');
-    alpha4.writeDigitAscii(3, 'D');
-    alpha4.writeDisplay();
+    // for (int i = 0; i < 20; i++)
+    // {
+    //   getInit();
+    // }
   }
-  else
-  {
-    Serial.println("card initialized.");
-    for (int i = 0; i < 9; i++)
-    {
-      strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
-    }
-    strip.show();
-    delay(10);
-  }
-  strip.clear();
-  strip.show();
-  root = SD.open("/");
-  configFile = SD.open("/config.cgf");
-
-  for (int i = 0; i < 20; i++)
-  {
-    getInit();
-  }
-  lastSleepTime = millis();
-  lastActiveTime = millis();
 }
 
 void getInit()
