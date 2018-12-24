@@ -22,7 +22,7 @@ const int chipSelect = 10;
 #define BRIGHTNESS 18
 #define NUMBRIGHTNESS 1
 
-#define CLICKTHRESHHOLD 40
+#define CLICKTHRESHHOLD 80
 #define TIMELATENCY 100
 
 #define RESET_PIN  -1  // set to any GPIO pin # to hard-reset on begin()
@@ -62,6 +62,7 @@ unsigned long lastSleepTime = 0;
 unsigned long powerdown = 30 * 1000;
 bool sleeping = false;
 bool recording = false;
+bool interrupted = false;
 
 int saveInterval = 1 * 1000; // One second
 int lastSave = 0;
@@ -174,19 +175,86 @@ void setup()
 void loop()
 {
   unsigned long hTime = millis();
-  int reading = getNextReading();
-  bool hitting = checkHitting(reading);
   if (sleeping)
   {
-    Serial.println("Sleeping");
-    if (hitting)
-    {
+    // Serial.println("Sleeping");
+    if (interrupted){
+      detachInterrupt(INTERRUPTPIN);
+      digitalWrite(SLEEPPIN, HIGH);
+      lastSleepTime = millis();
+      lastActiveTime = millis();
+      Serial.println("Starting Bar Display");
+      strip.setBrightness(BRIGHTNESS);
+      strip.begin();
+      Serial.println("Starting AlphaNum");
+      alpha4.begin(0x70); // pass in the address
+      alpha4.setBrightness(NUMBRIGHTNESS);
+      alpha4.clear();
+      // resetGame();
+      Serial.println("Starting Bar Display");
+      strip.setBrightness(BRIGHTNESS);
+      strip.begin();
+      Serial.println("Starting AlphaNum");
+      alpha4.begin(0x70); // pass in the address
+      alpha4.setBrightness(NUMBRIGHTNESS);
+      alpha4.clear();
+      // resetGame();
+
+      Serial.println("Starting Pressure Sensor");
+      if (!mpr.begin())
+      {
+        Serial.println("Could not find a valid BMP280 sensor, check wiring!");
+        for (int i = 0; i < 9; i++)
+        {
+          strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
+          strip.show();
+        }
+        // while (1);
+      }
+
+      // initialize all the readings to 0:
+      for (int thisReading = 0; thisReading < numReadings; thisReading++)
+      {
+        readings[thisReading] = 0;
+      }
+
+      // see if the card is present and can be initialized:
+      if (!SD.begin(chipSelect))
+      {
+        alpha4.writeDigitAscii(0, 'N');
+        alpha4.writeDigitAscii(1, 'o', "drawDots");
+        alpha4.writeDigitAscii(2, 'S');
+        alpha4.writeDigitAscii(3, 'D');
+        alpha4.writeDisplay();
+      }
+      else
+      {
+        Serial.println("card initialized.");
+        for (int i = 0; i < 9; i++)
+        {
+          strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
+        }
+        strip.show();
+        delay(10);
+      }
+      strip.clear();
+      strip.show();
+      root = SD.open("/");
+      configFile = SD.open("/config.cgf");
+
+      for (int i = 0; i < 20; i++)
+      {
+      getInit();
+      }
+      hTime = millis();
+      interrupted = false;
       sleeping = false;
-      lastSleepTime = hTime;
     }
   }
   else
   {
+    int reading = getNextReading();
+    bool hitting = checkHitting(reading);
     updatePressureBar(reading);
     updateProgressBar(score);
     updateTextDisplay(score);
@@ -399,75 +467,14 @@ bool checkSleepTimeout(unsigned long milli)
 void wake()
 {
   Serial.println("We should be awake");
-  if (sleeping)
-  {
-    detachInterrupt(INTERRUPTPIN);
-    digitalWrite(SLEEPPIN, HIGH);
-    lastSleepTime = millis();
-    lastActiveTime = millis();
-    sleeping = false;
-    Serial.println("in da if");
-    // delay(1000);
-    Serial.println("Starting Bar Display");
-    strip.setBrightness(BRIGHTNESS);
-    strip.begin();
-    Serial.println("Starting AlphaNum");
-    alpha4.begin(0x70); // pass in the address
-    alpha4.setBrightness(NUMBRIGHTNESS);
-    alpha4.clear();
-    // Serial.println("Starting Pressure Sensor");
-    // if (!mpr.begin())
-    // {
-    //   Serial.println("Could not find a valid BMP280 sensor, check wiring!");
-    //   for (int i = 0; i < 9; i++)
-    //   {
-    //     strip.setPixelColor(i, strip.Color(20, 0, 0, 0));
-    //     strip.show();
-    //   }
-    //   // while (1);
-    // }
-
-    // initialize all the readings to 0:
-    for (int thisReading = 0; thisReading < numReadings; thisReading++)
-    {
-      readings[thisReading] = 0;
-    }
-
-    // see if the card is present and can be initialized:
-    // if (!SD.begin(chipSelect))
-    // {
-    //   alpha4.writeDigitAscii(0, 'N');
-    //   alpha4.writeDigitAscii(1, 'o', "drawDots");
-    //   alpha4.writeDigitAscii(2, 'S');
-    //   alpha4.writeDigitAscii(3, 'D');
-    //   alpha4.writeDisplay();
-    // }
-    // else
-    // {
-    //   Serial.println("card initialized.");
-    //   for (int i = 0; i < 9; i++)
-    //   {
-    //     strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
-    //   }
-    //   strip.show();
-    //   delay(10);
-    // }
-    // strip.clear();
-    // strip.show();
-    root = SD.open("/");
-    configFile = SD.open("/config.cgf");
-
-    // for (int i = 0; i < 20; i++)
-    // {
-    //   getInit();
-    // }
-  }
+  interrupted = true;
 }
 
 void getInit()
 {
-  initReading = getNextReading();
-  targetReading = initReading - offset;
+    initReading = getNextReading();
+    targetReading = initReading - offset;
+
 }
 
 void writeReading(long hTime, int reading, float rate, float score, bool hitting, File currFile)
