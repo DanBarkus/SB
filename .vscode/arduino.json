@@ -2,5 +2,6 @@
     "board": "adafruit:samd:adafruit_feather_m0",
     "sketch": "\\SB\\SB.ino",
     "output": "../build",
-    "port": "COM9"
+    "port": "COM3",
+    "programmer": "AVR ISP"
 }

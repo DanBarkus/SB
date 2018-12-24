@@ -7,7 +7,9 @@
                 "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\**",
                 "C:\\Users\\danie\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\samd\\1.6.19\\**",
                 "C:\\Users\\danie\\Documents\\Arduino\\libraries\\Adafruit_LIS3DH",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}\\SB\\**",
+                "C:\\Users\\Dan\\Documents\\SB\\SB\\SB\\libraries\\**",
+                "C:\\Users\\Dan\\Documents\\SB\\SB\\SB\\libraries\\Adafruit_LED_Backpack_Library\\Adafruit_LEDBackpack.h"
             ],
             "defines": [
                 "_DEBUG",
