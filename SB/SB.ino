@@ -12,9 +12,10 @@
 
 const int chipSelect = 10;
 
-#define LIS3DH_CS 9
+#define LIS3DH_CS 5
 #define PIN 12
 #define SLEEPPIN 6
+#define VBATPIN A7
 
 #define INTERRUPTPIN 0
 
@@ -22,8 +23,8 @@ const int chipSelect = 10;
 #define BRIGHTNESS 18
 #define NUMBRIGHTNESS 1
 
-#define CLICKTHRESHHOLD 80
-#define TIMELATENCY 100
+#define CLICKTHRESHHOLD 100
+#define TIMELATENCY 200
 
 #define RESET_PIN  -1  // set to any GPIO pin # to hard-reset on begin()
 #define EOC_PIN    -1  // set to any GPIO pin to read end-of-conversion by pin
@@ -59,10 +60,10 @@ unsigned long lastActiveTime = 0;
 unsigned long timeout = 7 * 1000;
 
 unsigned long lastSleepTime = 0;
-unsigned long powerdown = 30 * 1000;
+unsigned long powerdown = 10 * 1000;
 bool sleeping = false;
 bool recording = false;
-bool interrupted = false;
+volatile bool interrupted = false;
 
 int saveInterval = 1 * 1000; // One second
 int lastSave = 0;
@@ -191,14 +192,6 @@ void loop()
       alpha4.setBrightness(NUMBRIGHTNESS);
       alpha4.clear();
       // resetGame();
-      Serial.println("Starting Bar Display");
-      strip.setBrightness(BRIGHTNESS);
-      strip.begin();
-      Serial.println("Starting AlphaNum");
-      alpha4.begin(0x70); // pass in the address
-      alpha4.setBrightness(NUMBRIGHTNESS);
-      alpha4.clear();
-      // resetGame();
 
       Serial.println("Starting Pressure Sensor");
       if (!mpr.begin())
@@ -230,17 +223,12 @@ void loop()
       else
       {
         Serial.println("card initialized.");
-        for (int i = 0; i < 9; i++)
-        {
-          strip.setPixelColor(i, strip.Color(0, 10, 0, 0));
-        }
-        strip.show();
-        delay(10);
       }
       strip.clear();
       strip.show();
       root = SD.open("/");
       configFile = SD.open("/config.cgf");
+      checkBattery();
 
       for (int i = 0; i < 20; i++)
       {
@@ -312,7 +300,8 @@ void loop()
         alpha4.writeDisplay();
         digitalWrite(SLEEPPIN, LOW);
         sleeping = true;
-        attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, CHANGE);
+        interrupted = false;
+        attachInterrupt(digitalPinToInterrupt(INTERRUPTPIN), wake, RISING);
       }
       else
       {
@@ -464,8 +453,44 @@ bool checkSleepTimeout(unsigned long milli)
   return false;
 }
 
+int checkBattery()
+{
+  float measuredvbat = analogRead(VBATPIN);
+  measuredvbat *= 2; // we divided by 2, so multiply back
+  measuredvbat *= 3.3; // Multiply by 3.3V, our reference voltage
+  measuredvbat /= 1024; // convert to voltage
+  float battBars = measuredvbat - 3.3;
+  battBars *= 10;
+  Serial.print("VBat: " ); Serial.println(measuredvbat);
+  int red = (3 - battBars) * 10;
+  if (red < 0) {
+    red = 0;
+  }
+  int green = (battBars - 4) * 10;
+  if (green > 30){
+    green = 30;
+  }
+  else if (green < 0){
+    green = 0;
+  }
+  uint32_t batteryColor = strip.Color(red, green, 0, 0);
+  alpha4.writeDigitAscii(0, 'B');
+  alpha4.writeDigitAscii(1, 'a');
+  alpha4.writeDigitAscii(2, 't');
+  alpha4.writeDigitAscii(3, 't');
+  alpha4.writeDisplay();
+  for (int i = 0; i<battBars; i++){
+    strip.setPixelColor(i, batteryColor);
+  }
+  strip.show();
+  delay(2000);
+  strip.clear();
+
+}
+
 void wake()
 {
+  detachInterrupt(INTERRUPTPIN);
   Serial.println("We should be awake");
   interrupted = true;
 }
